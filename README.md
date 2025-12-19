@@ -27,3 +27,19 @@ In complex GTM containers, answering questions like:
 …normally takes several clicks per variable.
 
 This extension reduces that to one view.
+
+# How to add it:
+
+<table>
+  <tr>
+    <td align="center">
+      <b>Extension Popup</b><br>
+      <img width="966" height="526" alt="image" src="https://github.com/user-attachments/assets/7eacdfcd-0004-4fe0-9d08-16959895fcdf">
+    </td>
+    <td align="center">
+      <b>GTM Variables Page</b><br>
+      <img src="images/screenshot-gtm-variables.png" width="350">
+    </td>
+  </tr>
+</table>
+
