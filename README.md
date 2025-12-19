@@ -33,7 +33,7 @@ This extension reduces that to one view.
 <table>
   <tr>
     <td align="center">
-      <b>Extension Popup</b><br>
+      <b>Github Repositories</b><br>
       <img width="966" height="526" alt="image" src="https://github.com/user-attachments/assets/7eacdfcd-0004-4fe0-9d08-16959895fcdf">
     </td>
     <td align="center">
