@@ -45,7 +45,7 @@ This extension reduces that to one view.
     </td>
      <td align="center">
        <b>Step 3</b><br>
-      <b>From Browser Extension Page</b><br>
+      <b>From the Browser Extensions page</b><br>
       <img width="1361" height="197" alt="image" src="https://github.com/user-attachments/assets/115fe678-da50-4a38-b369-803ce858dfe4">
        </td>
   </tr>
