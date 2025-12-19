@@ -37,9 +37,13 @@ This extension reduces that to one view.
       <img width="966" height="526" alt="image" src="https://github.com/user-attachments/assets/7eacdfcd-0004-4fe0-9d08-16959895fcdf">
     </td>
     <td align="center">
-      <b>GTM Variables Page</b><br>
+      <b>From Downloaded Folder</b><br>
       <img width="715" height="112" alt="image" src="https://github.com/user-attachments/assets/ee12f9f0-fad1-4b82-b94e-ef7ed8d67445">
     </td>
+     <td align="center">
+      <b>From Browser Extension Page</b><br>
+      <img width="1361" height="197" alt="image" src="https://github.com/user-attachments/assets/115fe678-da50-4a38-b369-803ce858dfe4">
+       </td>
   </tr>
 </table>
 
