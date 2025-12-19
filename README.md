@@ -38,7 +38,7 @@ This extension reduces that to one view.
     </td>
     <td align="center">
       <b>GTM Variables Page</b><br>
-      <img src="images/screenshot-gtm-variables.png" width="350">
+      <img width="715" height="112" alt="image" src="https://github.com/user-attachments/assets/ee12f9f0-fad1-4b82-b94e-ef7ed8d67445">
     </td>
   </tr>
 </table>
