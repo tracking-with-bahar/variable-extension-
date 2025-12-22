@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const [{ result }] = await chrome.scripting.executeScript({
         target: { tabId: tab.id },
         func: () => {
+        let reference = '/references';
           const vars = Array.from(
             document.querySelectorAll('a.fill-cell.wd-variable-name.md-gtm-theme')
           )
@@ -28,9 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
             })
             .map(el => ({
               name: el.textContent.trim(),
-              url: el.href
-                .replace('#', 'api')
-                .replace('container/', '') + '/references'
+              url: 'https://tagmanager.google.com/api/accounts' + el.href.split('accounts')[1] + reference
             }));
 
           if (!vars.length) {
@@ -117,4 +116,3 @@ document.addEventListener('DOMContentLoaded', () => {
 
   fetchGTMData();
 });
-
