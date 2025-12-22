@@ -9,8 +9,9 @@
       "16": "icons/icon.png"
     }
   },
-  "permissions": ["tabs", "scripting"],
+  "permissions": ["tabs", "scripting", "storage"],
   "host_permissions": ["https://tagmanager.google.com/*"]
 }
+
 
 
