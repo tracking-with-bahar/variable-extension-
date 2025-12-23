@@ -35,6 +35,10 @@ td {
   word-break: break-word;
   white-space: normal;
 }
+input[type="checkbox"]:hover {
+  cursor: pointer;
+}
+
 
 
 
