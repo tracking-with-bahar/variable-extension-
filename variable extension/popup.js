@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (!tab?.id) throw new Error('No active tab found');
 
-      //  Execute inside the GTM page
+      // Execute inside GTM page
       const [{ result }] = await chrome.scripting.executeScript({
         target: { tabId: tab.id },
         func: () => {
@@ -22,13 +22,15 @@ document.addEventListener('DOMContentLoaded', () => {
             el.closest('[data-table-id]')?.getAttribute('data-table-id') === 'variable-list-user-defined'
           );
 
-          if (!vars.length) return { error: 'No User-Defined Variables found. Open GTM Variables page.' };
+          if (!vars.length) {
+            return { error: 'No User-Defined Variables found. Open GTM Variables page.' };
+          }
 
-          const reference = '/references';
           return {
             variables: vars.map(el => ({
               name: el.textContent.trim(),
-              url: 'https://tagmanager.google.com/api/accounts' + el.href.split('accounts')[1] + reference
+              url: 'https://tagmanager.google.com/api/accounts' +
+                   el.href.split('accounts')[1] + '/references'
             }))
           };
         }
@@ -36,59 +38,81 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (result?.error) throw new Error(result.error);
 
-      // Fetch variable references
-      const variables = await Promise.all(
+      // Fetch references
+      const variablesData = await Promise.all(
         result.variables.map(async v => {
           try {
             const res = await fetch(v.url, { credentials: 'include' });
             const raw = await res.text();
             const clean = raw.replace(/^\)\]\}',?\n/, '');
             const parsed = JSON.parse(clean);
-            return { variableName: v.name, entities: parsed?.default?.entity || [] };
+
+            return {
+              variableName: v.name,
+              entities: parsed?.default?.entity || []
+            };
           } catch {
             return { variableName: v.name, entities: [] };
           }
         })
       );
 
-      //  Build table
+      // Build table
       const table = document.createElement('table');
       table.style.width = '100%';
       table.style.borderCollapse = 'collapse';
 
       const thead = document.createElement('thead');
       const headerRow = document.createElement('tr');
-      ['Variables', 'Tags', 'Triggers'].forEach(text => {
+
+      ['Variable Name', 'Tags', 'Triggers', 'Variables'].forEach(text => {
         const th = document.createElement('th');
         th.textContent = text;
         th.style.border = '1px solid #ccc';
         th.style.padding = '6px';
         headerRow.appendChild(th);
       });
+
       thead.appendChild(headerRow);
       table.appendChild(thead);
 
       const tbody = document.createElement('tbody');
 
-      variables.forEach(v => {
-        const tags = v.entities.filter(e => 'tagKey' in e).map(e => e.name || e.publicId);
-        const triggers = v.entities.filter(e => 'triggerKey' in e).map(e => e.name || e.publicId);
+      variablesData.forEach(v => {
+        const tags = v.entities
+          .filter(e => 'tagKey' in e)
+          .map(e => e.name || e.publicId);
+
+        const triggers = v.entities
+          .filter(e => 'triggerKey' in e)
+          .map(e => e.name || e.publicId);
+
+        const linkedVariables = v.entities
+          .filter(e => 'variableKey' in e)
+          .map(e => e.name || e.publicId);
 
         const tr = document.createElement('tr');
-        [v.variableName, tags.join(', ') || ' ', triggers.join(', ') || ' '].forEach(text => {
+
+        [
+          v.variableName,
+          tags.join(', ') || ' ',
+          triggers.join(', ') || ' ',
+          linkedVariables.join(', ') || ' '
+        ].forEach(text => {
           const td = document.createElement('td');
           td.textContent = text;
           td.style.border = '1px solid #ccc';
           td.style.padding = '6px';
           tr.appendChild(td);
         });
+
         tbody.appendChild(tr);
       });
 
       table.appendChild(tbody);
       container.appendChild(table);
 
-      // Add custom checkboxes and sync with GTM row checkboxes
+      // Add custom checkboxes + storage sync
       tbody.querySelectorAll('tr').forEach(row => {
         const firstCell = row.querySelector('td');
         if (!firstCell || firstCell.querySelector('.custom-variable-checkbox')) return;
@@ -102,20 +126,20 @@ document.addEventListener('DOMContentLoaded', () => {
         wrapper.style.display = 'inline-flex';
         wrapper.style.alignItems = 'center';
         wrapper.appendChild(checkbox);
+
         firstCell.prepend(wrapper);
 
-        const variableName = row.querySelector('td').textContent.trim();
+        const variableName = firstCell.textContent.trim();
 
-        // Restore stored state
+        // Restore saved state
         chrome.storage.sync.get(variableName, data => {
           if (data[variableName] !== undefined) {
             checkbox.checked = data[variableName];
           }
         });
 
-        // Sync GTM row checkbox and store state on change
+        // Sync GTM checkbox + save state
         checkbox.addEventListener('change', async () => {
-          // Store state
           chrome.storage.sync.set({ [variableName]: checkbox.checked });
 
           const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -133,8 +157,15 @@ document.addEventListener('DOMContentLoaded', () => {
               const el = vars.find(v => v.textContent.trim() === name);
               if (!el) return;
 
-              const rowCheckbox = el.parentElement.parentElement.querySelector('i.wd-table-row-checkbox[role="checkbox"]');
-              if (rowCheckbox && (rowCheckbox.getAttribute('aria-checked') === 'true') !== checked) {
+              const rowCheckbox =
+                el.parentElement.parentElement.querySelector(
+                  'i.wd-table-row-checkbox[role="checkbox"]'
+                );
+
+              if (
+                rowCheckbox &&
+                (rowCheckbox.getAttribute('aria-checked') === 'true') !== checked
+              ) {
                 rowCheckbox.click();
               }
             },
@@ -144,6 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       loading.style.display = 'none';
+
     } catch (err) {
       loading.style.display = 'none';
       errorDiv.textContent = err.message;
@@ -153,4 +185,3 @@ document.addEventListener('DOMContentLoaded', () => {
 
   fetchGTMData();
 });
-
