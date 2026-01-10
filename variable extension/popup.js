@@ -153,6 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
+        checkbox.title = 'Click to select';
         checkbox.className = 'custom-variable-checkbox';
         checkbox.style.marginRight = '8px';
 
@@ -212,3 +213,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
   fetchGTMData();
 });
+
