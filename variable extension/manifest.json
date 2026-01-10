@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "GTM Variable References",
   "version": "1.0",
-  "description": "See tag and trigger references for GTM variables",
+  "description": "See tag, trigger, and variable references for GTM variables",
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
@@ -12,6 +12,7 @@
   "permissions": ["tabs", "scripting", "storage"],
   "host_permissions": ["https://tagmanager.google.com/*"]
 }
+
 
 
 
