@@ -16,23 +16,31 @@ document.addEventListener('DOMContentLoaded', () => {
       const [{ result }] = await chrome.scripting.executeScript({
         target: { tabId: tab.id },
         func: () => {
-          const vars = Array.from(
-            document.querySelectorAll('a.fill-cell.wd-variable-name.md-gtm-theme')
-          ).filter(el =>
-            el.closest('[data-table-id]')?.getAttribute('data-table-id') === 'variable-list-user-defined'
+          const rows = Array.from(
+            document.querySelectorAll('[data-table-id="variable-list-user-defined"] tr')
           );
 
-          if (!vars.length) {
-            return { error: 'No User-Defined Variables found. Open GTM Variables page.' };
+          const variables = [];
+
+          rows.forEach(row => {
+            const nameEl = row.querySelector('a.fill-cell.wd-variable-name.md-gtm-theme');
+            if (!nameEl) return;
+
+            const variableName = nameEl.innerText.trim();
+            const variableType = row.children[2]?.innerText.trim() || ' ';
+
+            variables.push({
+              name: variableName,
+              type: variableType,
+              url: 'https://tagmanager.google.com/api/accounts' + nameEl.href.split('accounts')[1] + '/references'
+            });
+          });
+
+          if (!variables.length) {
+            return { error: 'No User-Defined Variables found.' };
           }
 
-          return {
-            variables: vars.map(el => ({
-              name: el.textContent.trim(),
-              url: 'https://tagmanager.google.com/api/accounts' +
-                   el.href.split('accounts')[1] + '/references'
-            }))
-          };
+          return { variables };
         }
       });
 
@@ -49,10 +57,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             return {
               variableName: v.name,
+              variableType: v.type || ' ',
               entities: parsed?.default?.entity || []
             };
           } catch {
-            return { variableName: v.name, entities: [] };
+            return { variableName: v.name, variableType: v.type || ' ', entities: [] };
           }
         })
       );
@@ -64,7 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const thead = document.createElement('thead');
       const headerRow = document.createElement('tr');
 
-      ['Variable Name', 'Tags', 'Triggers', 'Variables'].forEach(text => {
+      ['Variable Name', 'Variable Type', 'Tags', 'Triggers', 'Variables'].forEach(text => {
         const th = document.createElement('th');
         th.textContent = text;
         th.style.border = '1px solid #ccc';
@@ -80,24 +89,22 @@ document.addEventListener('DOMContentLoaded', () => {
       variablesData.forEach(v => {
         const tags = v.entities
           .filter(e => 'tagKey' in e)
-          .map(e => e.name || e.publicId);
+          .map(e => e.name || e.publicId)
+          .join(', ') || ' ';
 
         const triggers = v.entities
           .filter(e => 'triggerKey' in e)
-          .map(e => e.name || e.publicId);
+          .map(e => e.name || e.publicId)
+          .join(', ') || ' ';
 
         const linkedVariables = v.entities
           .filter(e => 'variableKey' in e)
-          .map(e => e.name || e.publicId);
+          .map(e => e.name || e.publicId)
+          .join(', ') || ' ';
 
         const tr = document.createElement('tr');
 
-        [
-          v.variableName,
-          tags.join(', ') || ' ',
-          triggers.join(', ') || ' ',
-          linkedVariables.join(', ') || ' '
-        ].forEach(text => {
+        [v.variableName, v.variableType, tags, triggers, linkedVariables].forEach(text => {
           const td = document.createElement('td');
           td.textContent = text;
           td.style.border = '1px solid #ccc';
@@ -111,7 +118,35 @@ document.addEventListener('DOMContentLoaded', () => {
       table.appendChild(tbody);
       container.appendChild(table);
 
-      // Add custom checkboxes + storage sync
+      // CSV Export Button ---
+      const exportBtn = document.createElement('button');
+      exportBtn.textContent = 'Export CSV';
+      exportBtn.style.margin = '10px 0';
+      exportBtn.style.padding = '6px 12px';
+      exportBtn.style.cursor = 'pointer';
+      container.prepend(exportBtn);
+
+      exportBtn.addEventListener('click', () => {
+        const rows = Array.from(container.querySelectorAll('table tr'));
+        const csvContent = rows.map(row => {
+          const cells = Array.from(row.querySelectorAll('td, th'));
+          return cells.map(cell => `"${cell.textContent.replace(/"/g, '""')}"`).join(',');
+        }).join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'gtm_variables.csv';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+
+      // Add checkboxes + storage + GTM sync
       tbody.querySelectorAll('tr').forEach(row => {
         const firstCell = row.querySelector('td');
         if (!firstCell || firstCell.querySelector('.custom-variable-checkbox')) return;
@@ -119,26 +154,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.className = 'custom-variable-checkbox';
-        checkbox.title = "Click to select";
         checkbox.style.marginRight = '8px';
 
         const wrapper = document.createElement('span');
         wrapper.style.display = 'inline-flex';
         wrapper.style.alignItems = 'center';
         wrapper.appendChild(checkbox);
-
         firstCell.prepend(wrapper);
 
         const variableName = firstCell.textContent.trim();
 
-        // Restore saved state
+        // Restore state
         chrome.storage.sync.get(variableName, data => {
-          if (data[variableName] !== undefined) {
-            checkbox.checked = data[variableName];
-          }
+          checkbox.checked = !!data[variableName];
         });
 
-        // Sync GTM checkbox + save state
+        // Sync with GTM row and store
         checkbox.addEventListener('change', async () => {
           chrome.storage.sync.set({ [variableName]: checkbox.checked });
 
@@ -151,21 +182,18 @@ document.addEventListener('DOMContentLoaded', () => {
               const vars = Array.from(
                 document.querySelectorAll('a.fill-cell.wd-variable-name.md-gtm-theme')
               ).filter(el =>
-                el.closest('[data-table-id]')?.getAttribute('data-table-id') === 'variable-list-user-defined'
+                el.closest('[data-table-id]')?.getAttribute('data-table-id') ===
+                'variable-list-user-defined'
               );
 
               const el = vars.find(v => v.textContent.trim() === name);
               if (!el) return;
 
-              const rowCheckbox =
-                el.parentElement.parentElement.querySelector(
-                  'i.wd-table-row-checkbox[role="checkbox"]'
-                );
+              const rowCheckbox = el.parentElement.parentElement.querySelector(
+                'i.wd-table-row-checkbox[role="checkbox"]'
+              );
 
-              if (
-                rowCheckbox &&
-                (rowCheckbox.getAttribute('aria-checked') === 'true') !== checked
-              ) {
+              if (rowCheckbox && (rowCheckbox.getAttribute('aria-checked') === 'true') !== checked) {
                 rowCheckbox.click();
               }
             },
@@ -175,7 +203,6 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       loading.style.display = 'none';
-
     } catch (err) {
       loading.style.display = 'none';
       errorDiv.textContent = err.message;
@@ -185,6 +212,3 @@ document.addEventListener('DOMContentLoaded', () => {
 
   fetchGTMData();
 });
-
-
-
