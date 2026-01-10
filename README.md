@@ -15,6 +15,7 @@ Remove unwanted variables.
 - Works inside the GTM interface (no exports required)
 
 - You can select any of GTM's variables from the Chrome extension interface
+- Save variable data to a CSV file
 
 # Why This Exists
 
