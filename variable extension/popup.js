@@ -82,7 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
         th.textContent = text;
         th.style.border = '1px solid #ccc';
         th.style.padding = '6px';
-        th.style.textAlign = 'left';
+        th.style.textAlign = 'center';
         headerRow.appendChild(th);
       });
 
@@ -261,3 +261,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
   fetchGTMData();
 });
+
