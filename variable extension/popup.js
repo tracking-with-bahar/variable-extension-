@@ -70,7 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
         })
       );
 
-      // Build table
+      // ===== BUILD TABLE =====
       const table = document.createElement('table');
       table.style.width = '100%';
 
@@ -122,17 +122,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
       table.appendChild(tbody);
 
-      // Controls
+      // =====  CREATE TOOLBAR WITH SEARCH =====
       const controls = document.createElement('div');
       controls.style.display = 'flex';
-      controls.style.justifyContent = 'space-between';
       controls.style.alignItems = 'center';
       controls.style.margin = '10px 0';
+
+      // Left: Export CSV
+      const left = document.createElement('div');
+      left.style.flex = '1';
 
       const exportBtn = document.createElement('button');
       exportBtn.textContent = 'Export CSV';
       exportBtn.style.padding = '6px 12px';
       exportBtn.style.cursor = 'pointer';
+      left.appendChild(exportBtn);
+
+      // Center: Search Input
+      const center = document.createElement('div');
+      center.style.flex = '1';
+      center.style.textAlign = 'center';
+
+      const searchInput = document.createElement('input');
+      searchInput.type = 'text';
+      searchInput.placeholder = 'Search variable...';
+      searchInput.style.padding = '6px 10px';
+      searchInput.style.width = '220px';
+      searchInput.style.border = '1px solid #ccc';
+      searchInput.style.borderRadius = '4px';
+      center.appendChild(searchInput);
+
+      // Selected counter
+      const right = document.createElement('div');
+      right.style.flex = '1';
+      right.style.textAlign = 'right';
 
       const selectedCounter = document.createElement('span');
       selectedCounter.style.display = 'none';
@@ -142,13 +165,16 @@ document.addEventListener('DOMContentLoaded', () => {
       selectedCounter.style.background = '#1a73e8';
       selectedCounter.style.color = '#fff';
       selectedCounter.style.borderRadius = '4px';
+      right.appendChild(selectedCounter);
 
-      controls.appendChild(exportBtn);
-      controls.appendChild(selectedCounter);
+      controls.appendChild(left);
+      controls.appendChild(center);
+      controls.appendChild(right);
 
       container.appendChild(controls);
       container.appendChild(table);
 
+      // ===== UPDATE SELECTED COUNT =====
       function updateSelectedCount() {
         const checkboxCount = container.querySelectorAll(
           '.custom-variable-checkbox:checked'
@@ -163,7 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      // CSV Export
+      // ===== CSV EXPORT =====
       exportBtn.addEventListener('click', () => {
         const selectedRows = Array.from(tbody.querySelectorAll('tr')).filter(
           row => row.querySelector('.custom-variable-checkbox')?.checked
@@ -199,7 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
         URL.revokeObjectURL(url);
       });
 
-      // Add checkboxes + GTM sync
+      // ====== ADD CHECKBOXES =====
       tbody.querySelectorAll('tr').forEach(row => {
         const firstCell = row.querySelector('td');
         if (!firstCell) return;
@@ -208,7 +234,6 @@ document.addEventListener('DOMContentLoaded', () => {
         checkbox.type = 'checkbox';
         checkbox.className = 'custom-variable-checkbox';
         checkbox.style.marginRight = '6px';
-
         firstCell.prepend(checkbox);
 
         const variableName = firstCell.textContent.trim();
@@ -251,6 +276,17 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       updateSelectedCount();
+
+      // ===== SEARCH FEATURE =====
+      searchInput.addEventListener('input', function () {
+        const value = this.value.toLowerCase();
+
+        tbody.querySelectorAll('tr').forEach(row => {
+          const variableName = row.children[0]?.textContent.toLowerCase() || '';
+          row.style.display = variableName.includes(value) ? '' : 'none';
+        });
+      });
+
       loading.style.display = 'none';
     } catch (err) {
       loading.style.display = 'none';
@@ -261,4 +297,3 @@ document.addEventListener('DOMContentLoaded', () => {
 
   fetchGTMData();
 });
-
