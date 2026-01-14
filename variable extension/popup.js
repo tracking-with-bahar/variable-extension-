@@ -15,29 +15,27 @@ document.addEventListener('DOMContentLoaded', () => {
       // ================= GET VARIABLES =================
       const [{ result }] = await chrome.scripting.executeScript({
         target: { tabId: tab.id },
-        func: () => {
-          return {
-            variables: Array.from(
-              document.querySelectorAll('[data-table-id="variable-list-user-defined"] tr')
-            )
-              .map(row => {
-                const nameEl = row.querySelector(
-                  'a.fill-cell.wd-variable-name.md-gtm-theme'
-                );
-                if (!nameEl) return null;
+        func: () => ({
+          variables: Array.from(
+            document.querySelectorAll('[data-table-id="variable-list-user-defined"] tr')
+          )
+            .map(row => {
+              const nameEl = row.querySelector(
+                'a.fill-cell.wd-variable-name.md-gtm-theme'
+              );
+              if (!nameEl) return null;
 
-                return {
-                  name: nameEl.innerText.trim(),
-                  type: row.children[2]?.innerText.trim() || '',
-                  url:
-                    'https://tagmanager.google.com/api/accounts' +
-                    nameEl.href.split('accounts')[1] +
-                    '/references'
-                };
-              })
-              .filter(Boolean)
-          };
-        }
+              return {
+                name: nameEl.innerText.trim(),
+                type: row.children[2]?.innerText.trim() || '',
+                url:
+                  'https://tagmanager.google.com/api/accounts' +
+                  nameEl.href.split('accounts')[1] +
+                  '/references'
+              };
+            })
+            .filter(Boolean)
+        })
       });
 
       // ================= FETCH REFERENCES =================
@@ -68,21 +66,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const exportBtn = document.createElement('button');
       exportBtn.textContent = 'Export CSV';
-      exportBtn.style.padding = '6px 12px';
 
       const searchInput = document.createElement('input');
       searchInput.placeholder = 'Search variable';
       searchInput.style.margin = '0 10px';
-      searchInput.style.padding = '6px 10px';
       searchInput.style.width = '220px';
 
       const selectedCounter = document.createElement('span');
       selectedCounter.style.marginLeft = 'auto';
       selectedCounter.style.display = 'none';
-      selectedCounter.style.padding = '4px 8px';
-      selectedCounter.style.background = '#1a73e8';
-      selectedCounter.style.color = '#fff';
-      selectedCounter.style.borderRadius = '4px';
 
       toolbar.append(exportBtn, searchInput, selectedCounter);
       container.appendChild(toolbar);
@@ -112,8 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const tags = v.entities.filter(e => e.tagKey).map(e => e.name).join(', ');
         const triggers = v.entities.filter(e => e.triggerKey).map(e => e.name).join(', ');
         const linkedVars = v.entities.filter(e => e.variableKey).map(e => e.name).join(', ');
-
-        const hasReferences = tags || triggers || linkedVars;
+        const hasReferences = !!(tags || triggers || linkedVars);
 
         // NAME + CHECKBOX
         const nameTd = document.createElement('td');
@@ -139,15 +130,14 @@ document.addEventListener('DOMContentLoaded', () => {
         deleteTd.appendChild(deleteImg);
         tr.appendChild(deleteTd);
 
-        // ===== CHECKBOX BEHAVIOR =====
+        // ===== CHECKBOX LOGIC =====
         checkbox.addEventListener('change', async () => {
           deleteImg.style.display =
             checkbox.checked && !hasReferences ? 'inline-block' : 'none';
 
           updateCounter();
 
-          const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-          chrome.scripting.executeScript({
+          await chrome.scripting.executeScript({
             target: { tabId: tab.id },
             func: (name, checked) => {
               const el = [...document.querySelectorAll(
@@ -168,35 +158,40 @@ document.addEventListener('DOMContentLoaded', () => {
           });
         });
 
-        // ===== DELETE FLOW =====
-        deleteImg.addEventListener('click', async () => {
-          const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-          await chrome.scripting.executeScript({
-            target: { tabId: tab.id },
-            func: name => {
-              const el = [...document.querySelectorAll(
-                'a.fill-cell.wd-variable-name.md-gtm-theme'
-              )].find(e => e.textContent.trim() === name);
-
-              document.querySelector('button.icon.icon-delete.icon--button').click();
-
-              setTimeout(() => {
-                document.querySelector('button.btn.btn-action.wd-action-dialog-confirm').click();
-              }, 200);
-            },
-            args: [v.variableName]
-          });
-
-          tr.remove();
-          updateCounter();
-        });
-
         tbody.appendChild(tr);
       });
 
       table.appendChild(tbody);
       container.appendChild(table);
+
+      // ================= BULK DELETE =================
+      container.addEventListener('click', async e => {
+        if (e.target.tagName !== 'IMG') return;
+        if (e.target.style.display !== 'inline-block') return;
+
+        const rowsToDelete = [...tbody.querySelectorAll('tr')].filter(row => {
+          const cb = row.querySelector('.custom-variable-checkbox');
+          const img = row.querySelector('img');
+          return cb?.checked && img?.style.display === 'inline-block';
+        });
+
+        if (!rowsToDelete.length) return;
+
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => {
+            document.querySelector('button.icon.icon-delete.icon--button')?.click();
+            setTimeout(() => {
+              document
+                .querySelector('button.btn.btn-action.wd-action-dialog-confirm')
+                ?.click();
+            }, 300);
+          }
+        });
+
+        rowsToDelete.forEach(r => r.remove());
+        updateCounter();
+      });
 
       // ================= COUNTER =================
       function updateCounter() {
@@ -222,9 +217,7 @@ document.addEventListener('DOMContentLoaded', () => {
         );
 
         const csv = [
-          [...table.querySelectorAll('th')]
-            .map(th => `"${th.textContent}"`)
-            .join(',')
+          [...table.querySelectorAll('th')].map(th => `"${th.textContent}"`).join(',')
         ];
 
         rows.forEach(r => {
