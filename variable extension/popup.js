@@ -12,41 +12,35 @@ document.addEventListener('DOMContentLoaded', () => {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (!tab?.id) throw new Error('No active tab found');
 
-      // Extract variables from GTM UI
+      // ================= GET VARIABLES =================
       const [{ result }] = await chrome.scripting.executeScript({
         target: { tabId: tab.id },
         func: () => {
-          const rows = Array.from(
-            document.querySelectorAll('[data-table-id="variable-list-user-defined"] tr')
-          );
+          return {
+            variables: Array.from(
+              document.querySelectorAll('[data-table-id="variable-list-user-defined"] tr')
+            )
+              .map(row => {
+                const nameEl = row.querySelector(
+                  'a.fill-cell.wd-variable-name.md-gtm-theme'
+                );
+                if (!nameEl) return null;
 
-          const variables = [];
-
-          rows.forEach(row => {
-            const nameEl = row.querySelector('a.fill-cell.wd-variable-name.md-gtm-theme');
-            if (!nameEl) return;
-
-            variables.push({
-              name: nameEl.innerText.trim(),
-              type: row.children[2]?.innerText.trim() || '',
-              url:
-                'https://tagmanager.google.com/api/accounts' +
-                nameEl.href.split('accounts')[1] +
-                '/references'
-            });
-          });
-
-          if (!variables.length) {
-            return { error: 'No User-Defined Variables found.' };
-          }
-
-          return { variables };
+                return {
+                  name: nameEl.innerText.trim(),
+                  type: row.children[2]?.innerText.trim() || '',
+                  url:
+                    'https://tagmanager.google.com/api/accounts' +
+                    nameEl.href.split('accounts')[1] +
+                    '/references'
+                };
+              })
+              .filter(Boolean)
+          };
         }
       });
 
-      if (result?.error) throw new Error(result.error);
-
-      // Fetch references
+      // ================= FETCH REFERENCES =================
       const variablesData = await Promise.all(
         result.variables.map(async v => {
           try {
@@ -61,207 +55,107 @@ document.addEventListener('DOMContentLoaded', () => {
               entities: parsed?.default?.entity || []
             };
           } catch {
-            return {
-              variableName: v.name,
-              variableType: v.type,
-              entities: []
-            };
+            return { variableName: v.name, variableType: v.type, entities: [] };
           }
         })
       );
 
-      // ===== BUILD TABLE =====
-      const table = document.createElement('table');
-      table.style.width = '100%';
-
-      const thead = document.createElement('thead');
-      const headerRow = document.createElement('tr');
-
-      ['Variable Name', 'Variable Type', 'Tags', 'Triggers', 'Variables'].forEach(text => {
-        const th = document.createElement('th');
-        th.textContent = text;
-        th.style.border = '1px solid #ccc';
-        th.style.padding = '6px';
-        th.style.textAlign = 'center';
-        headerRow.appendChild(th);
-      });
-
-      thead.appendChild(headerRow);
-      table.appendChild(thead);
-
-      const tbody = document.createElement('tbody');
-
-      variablesData.forEach(v => {
-        const tags = v.entities
-          .filter(e => 'tagKey' in e)
-          .map(e => e.name || e.publicId)
-          .join(', ') || '';
-
-        const triggers = v.entities
-          .filter(e => 'triggerKey' in e)
-          .map(e => e.name || e.publicId)
-          .join(', ') || '';
-
-        const linkedVariables = v.entities
-          .filter(e => 'variableKey' in e)
-          .map(e => e.name || e.publicId)
-          .join(', ') || '';
-
-        const tr = document.createElement('tr');
-
-        [v.variableName, v.variableType, tags, triggers, linkedVariables].forEach(text => {
-          const td = document.createElement('td');
-          td.textContent = text;
-          td.style.border = '1px solid #ccc';
-          td.style.padding = '6px';
-          tr.appendChild(td);
-        });
-
-        tbody.appendChild(tr);
-      });
-
-      table.appendChild(tbody);
-
-      // =====  CREATE TOOLBAR WITH SEARCH =====
-      const controls = document.createElement('div');
-      controls.style.display = 'flex';
-      controls.style.alignItems = 'center';
-      controls.style.margin = '10px 0';
-
-      // Left: Export CSV
-      const left = document.createElement('div');
-      left.style.flex = '1';
+      // ================= TOOLBAR =================
+      const toolbar = document.createElement('div');
+      toolbar.style.display = 'flex';
+      toolbar.style.alignItems = 'center';
+      toolbar.style.margin = '10px 0';
 
       const exportBtn = document.createElement('button');
       exportBtn.textContent = 'Export CSV';
       exportBtn.style.padding = '6px 12px';
-      exportBtn.style.cursor = 'pointer';
-      left.appendChild(exportBtn);
-
-      // Center: Search Input
-      const center = document.createElement('div');
-      center.style.flex = '1';
-      center.style.textAlign = 'center';
 
       const searchInput = document.createElement('input');
-      searchInput.type = 'text';
-      searchInput.placeholder = 'Search variable...';
+      searchInput.placeholder = 'Search variable';
+      searchInput.style.margin = '0 10px';
       searchInput.style.padding = '6px 10px';
       searchInput.style.width = '220px';
-      searchInput.style.border = '1px solid #ccc';
-      searchInput.style.borderRadius = '4px';
-      center.appendChild(searchInput);
-
-      // Selected counter
-      const right = document.createElement('div');
-      right.style.flex = '1';
-      right.style.textAlign = 'right';
 
       const selectedCounter = document.createElement('span');
+      selectedCounter.style.marginLeft = 'auto';
       selectedCounter.style.display = 'none';
-      selectedCounter.style.fontSize = '14px';
       selectedCounter.style.padding = '4px 8px';
-      selectedCounter.style.border = '1px solid #1a73e8';
       selectedCounter.style.background = '#1a73e8';
       selectedCounter.style.color = '#fff';
       selectedCounter.style.borderRadius = '4px';
-      right.appendChild(selectedCounter);
 
-      controls.appendChild(left);
-      controls.appendChild(center);
-      controls.appendChild(right);
+      toolbar.append(exportBtn, searchInput, selectedCounter);
+      container.appendChild(toolbar);
 
-      container.appendChild(controls);
-      container.appendChild(table);
+      // ================= TABLE =================
+      const table = document.createElement('table');
+      table.style.width = '100%';
 
-      // ===== UPDATE SELECTED COUNT =====
-      function updateSelectedCount() {
-        const checkboxCount = container.querySelectorAll(
-          '.custom-variable-checkbox:checked'
-        ).length;
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th>Variable Name</th>
+            <th>Type</th>
+            <th>Tags</th>
+            <th>Triggers</th>
+            <th>Variables</th>
+            <th>Delete</th>
+          </tr>
+        </thead>
+      `;
 
-        if (checkboxCount > 0) {
-          selectedCounter.style.display = 'inline-block';
-          selectedCounter.textContent = checkboxCount + ' selected';
-        } else {
-          selectedCounter.style.display = 'none';
-          selectedCounter.textContent = '';
-        }
-      }
+      const tbody = document.createElement('tbody');
 
-      // ===== CSV EXPORT =====
-      exportBtn.addEventListener('click', () => {
-        const selectedRows = Array.from(tbody.querySelectorAll('tr')).filter(
-          row => row.querySelector('.custom-variable-checkbox')?.checked
-        );
+      variablesData.forEach(v => {
+        const tr = document.createElement('tr');
 
-        const rowsToExport =
-          selectedRows.length > 0 ? selectedRows : Array.from(tbody.querySelectorAll('tr'));
+        const tags = v.entities.filter(e => e.tagKey).map(e => e.name).join(', ');
+        const triggers = v.entities.filter(e => e.triggerKey).map(e => e.name).join(', ');
+        const linkedVars = v.entities.filter(e => e.variableKey).map(e => e.name).join(', ');
 
-        const headers = Array.from(thead.querySelectorAll('th')).map(th =>
-          th.textContent.trim()
-        );
+        const hasReferences = tags || triggers || linkedVars;
 
-        const csvRows = [];
-        csvRows.push(headers.map(h => `"${h}"`).join(','));
-
-        rowsToExport.forEach(row => {
-          const cells = Array.from(row.querySelectorAll('td')).map(td =>
-            `"${td.textContent.replace(/"/g, '""')}"`
-          );
-          csvRows.push(cells.join(','));
-        });
-
-        const csvContent = '\uFEFF' + csvRows.join('\n');
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `gtm-variables-${new Date().toISOString().split('T')[0]}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      });
-
-      // ====== ADD CHECKBOXES =====
-      tbody.querySelectorAll('tr').forEach(row => {
-        const firstCell = row.querySelector('td');
-        if (!firstCell) return;
-
+        // NAME + CHECKBOX
+        const nameTd = document.createElement('td');
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.className = 'custom-variable-checkbox';
         checkbox.style.marginRight = '6px';
-        firstCell.prepend(checkbox);
+        nameTd.append(checkbox, v.variableName);
+        tr.appendChild(nameTd);
 
-        const variableName = firstCell.textContent.trim();
-
-        chrome.storage.sync.get(variableName, data => {
-          checkbox.checked = !!data[variableName];
-          updateSelectedCount();
+        [v.variableType, tags, triggers, linkedVars].forEach(text => {
+          const td = document.createElement('td');
+          td.textContent = text || '';
+          tr.appendChild(td);
         });
 
+        // DELETE ICON
+        const deleteTd = document.createElement('td');
+        const deleteImg = document.createElement('img');
+        deleteImg.src = 'icons/removeicon.png';
+        deleteImg.style.cursor = 'pointer';
+        deleteImg.style.display = 'none';
+        deleteTd.appendChild(deleteImg);
+        tr.appendChild(deleteTd);
+
+        // ===== CHECKBOX BEHAVIOR =====
         checkbox.addEventListener('change', async () => {
-          chrome.storage.sync.set({ [variableName]: checkbox.checked });
-          updateSelectedCount();
+          deleteImg.style.display =
+            checkbox.checked && !hasReferences ? 'inline-block' : 'none';
+
+          updateCounter();
 
           const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-          if (!tab?.id) return;
-
           chrome.scripting.executeScript({
             target: { tabId: tab.id },
             func: (name, checked) => {
-              const el = Array.from(
-                document.querySelectorAll('a.fill-cell.wd-variable-name.md-gtm-theme')
-              ).find(v => v.textContent.trim() === name);
+              const el = [...document.querySelectorAll(
+                'a.fill-cell.wd-variable-name.md-gtm-theme'
+              )].find(e => e.textContent.trim() === name);
 
-              if (!el) return;
-
-              const rowCheckbox = el
-                .closest('tr')
-                ?.querySelector('i.wd-table-row-checkbox[role="checkbox"]');
+              const rowCheckbox = el?.closest('tr')
+                ?.querySelector('i.wd-table-row-checkbox');
 
               if (
                 rowCheckbox &&
@@ -270,21 +164,82 @@ document.addEventListener('DOMContentLoaded', () => {
                 rowCheckbox.click();
               }
             },
-            args: [variableName, checkbox.checked]
+            args: [v.variableName, checkbox.checked]
           });
+        });
+
+        // ===== DELETE FLOW =====
+        deleteImg.addEventListener('click', async () => {
+          const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+          await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            func: name => {
+              const el = [...document.querySelectorAll(
+                'a.fill-cell.wd-variable-name.md-gtm-theme'
+              )].find(e => e.textContent.trim() === name);
+
+              document.querySelector('button.icon.icon-delete.icon--button').click();
+
+              setTimeout(() => {
+                document.querySelector('button.btn.btn-action.wd-action-dialog-confirm').click();
+              }, 200);
+            },
+            args: [v.variableName]
+          });
+
+          tr.remove();
+          updateCounter();
+        });
+
+        tbody.appendChild(tr);
+      });
+
+      table.appendChild(tbody);
+      container.appendChild(table);
+
+      // ================= COUNTER =================
+      function updateCounter() {
+        const count = container.querySelectorAll('.custom-variable-checkbox:checked').length;
+        selectedCounter.style.display = count ? 'inline-block' : 'none';
+        selectedCounter.textContent = count ? `${count} selected` : '';
+      }
+
+      // ================= SEARCH =================
+      searchInput.addEventListener('input', () => {
+        const value = searchInput.value.toLowerCase();
+        tbody.querySelectorAll('tr').forEach(row => {
+          row.style.display = row.textContent.toLowerCase().includes(value)
+            ? ''
+            : 'none';
         });
       });
 
-      updateSelectedCount();
+      // ================= CSV =================
+      exportBtn.addEventListener('click', () => {
+        const rows = [...tbody.querySelectorAll('tr')].filter(
+          r => r.style.display !== 'none'
+        );
 
-      // ===== SEARCH FEATURE =====
-      searchInput.addEventListener('input', function () {
-        const value = this.value.toLowerCase();
+        const csv = [
+          [...table.querySelectorAll('th')]
+            .map(th => `"${th.textContent}"`)
+            .join(',')
+        ];
 
-        tbody.querySelectorAll('tr').forEach(row => {
-          const variableName = row.children[0]?.textContent.toLowerCase() || '';
-          row.style.display = variableName.includes(value) ? '' : 'none';
+        rows.forEach(r => {
+          csv.push(
+            [...r.querySelectorAll('td')]
+              .map(td => `"${td.textContent.replace(/"/g, '""')}"`)
+              .join(',')
+          );
         });
+
+        const blob = new Blob(['\uFEFF' + csv.join('\n')], { type: 'text/csv' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'gtm-variables.csv';
+        a.click();
       });
 
       loading.style.display = 'none';
