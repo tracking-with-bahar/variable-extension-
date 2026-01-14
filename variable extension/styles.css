@@ -97,6 +97,9 @@ img {
 td:nth-child(2){
   width: 60px;
 }
+td:nth-child(1){
+  width: 60px;
+}
 
 
 
