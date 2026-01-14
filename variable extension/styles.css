@@ -75,7 +75,8 @@ button:active {
 }
 
 span {
-  color: white;
+  color: #f1f0f0;
+  background-color: #1669c1;
   border: none;
   padding: 12px 24px;
   font-size: 14px;
@@ -96,6 +97,7 @@ img {
 td:nth-child(2){
   width: 60px;
 }
+
 
 
 
