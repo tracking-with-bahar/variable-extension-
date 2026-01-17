@@ -5,12 +5,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function fetchGTMData() {
     loading.style.display = 'block';
+    loading.innerText = 'Loading variables data...';
     errorDiv.textContent = '';
     container.innerHTML = '';
 
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (!tab?.id) throw new Error('No active tab found');
+
+      // ================= CHECK VARIABLE TAB (INSIDE GTM PAGE) =================
+      const [{ result: isVariableTab }] = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: () =>
+          !!document.querySelector(
+            'a.gtm-container-menu-list-item.wd-open-variable-list-button.selected'
+          )
+      });
+
+      if (!isVariableTab) {
+        loading.innerText = 'Warning! You are not in the variable section';
+        loading.style.color = 'red';
+        loading.style.fontSize = '20px';
+        return;
+      }
 
       // ================= GET VARIABLES =================
       const [{ result }] = await chrome.scripting.executeScript({
@@ -217,7 +234,9 @@ document.addEventListener('DOMContentLoaded', () => {
         );
 
         const csv = [
-          [...table.querySelectorAll('th')].map(th => `"${th.textContent}"`).join(',')
+          [...table.querySelectorAll('th')]
+            .map(th => `"${th.textContent}"`)
+            .join(',')
         ];
 
         rows.forEach(r => {
