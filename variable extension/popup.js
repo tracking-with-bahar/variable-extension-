@@ -85,9 +85,12 @@ document.addEventListener('DOMContentLoaded', () => {
       exportBtn.textContent = 'Export CSV';
 
       const searchInput = document.createElement('input');
+     searchInput.id = 'search-variable';
       searchInput.placeholder = 'Search variable';
-      searchInput.style.margin = '0 10px';
+      searchInput.style.margin = '0 35px';
       searchInput.style.width = '220px';
+      searchInput.style.height = '25px';
+     searchInput.style.fontSize = '14px';
 
       const selectedCounter = document.createElement('span');
       selectedCounter.style.marginLeft = 'auto';
