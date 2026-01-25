@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const searchInput = document.createElement('input');
      searchInput.id = 'search-variable';
       searchInput.placeholder = 'Search variable';
-      searchInput.style.margin = '0 35px';
+      searchInput.style.margin = '0 37px';
       searchInput.style.width = '220px';
       searchInput.style.height = '25px';
      searchInput.style.fontSize = '14px';
@@ -204,7 +204,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
               document
                 .querySelector('button.btn.btn-action.wd-action-dialog-confirm')
-                ?.click();
+                ?.click() || document.querySelector("button.btn.btn--action.wd-action-dialog-confirm")?.click();
             }, 300);
           }
         });
